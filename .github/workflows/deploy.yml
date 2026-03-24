@@ -38,11 +38,17 @@ jobs:
         run: |
           mkdir -p _site
           python myges_calendar.py \
+            --weeks 6 \
             --json-out _site/calendar.json \
             --ics-out _site/calendar.ics
 
       - name: Copy static files
-        run: cp index.html _site/index.html
+        run: |
+          cp index.html _site/
+          cp manifest.json _site/
+          cp icon.svg _site/
+          cp icon-192.png _site/
+          cp icon-512.png _site/
 
       - uses: actions/configure-pages@v5
 
