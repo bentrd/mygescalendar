@@ -1,0 +1,55 @@
+name: Fetch Calendar & Deploy to Pages
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Every day at 6:00 UTC (7:00/8:00 Paris time)
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch current week calendar
+        env:
+          MYGES_USERNAME: ${{ secrets.MYGES_USERNAME }}
+          MYGES_PASSWORD: ${{ secrets.MYGES_PASSWORD }}
+          MYGES_TIMEZONE: ${{ secrets.MYGES_TIMEZONE }}
+        run: |
+          mkdir -p _site
+          python myges_calendar.py \
+            --json-out _site/calendar.json \
+            --ics-out _site/calendar.ics
+
+      - name: Copy static files
+        run: cp index.html _site/index.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

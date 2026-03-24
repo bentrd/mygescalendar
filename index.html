@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyGES Planning</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --grid-line: #f1f5f9;
+      --today-bg: #eff6ff;
+      --now-line: #ef4444;
+      --gutter-width: 50px;
+    }
+
+    html, body {
+      height: 100vh;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    header h1 {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    header h1 span {
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    #week-range {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    #last-updated {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    /* Legend in header */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    /* App fills remaining space */
+    #app {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 20px 24px;
+    }
+
+    .calendar {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      overflow: hidden;
+      padding-bottom: 6px;
+    }
+
+    /* Day headers */
+    .day-headers {
+      display: grid;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .day-header {
+      text-align: center;
+      padding: 6px 4px;
+      border-left: 1px solid var(--border);
+    }
+
+    .day-header:first-child {
+      border-left: none;
+    }
+
+    .day-header.is-today {
+      background: var(--today-bg);
+    }
+
+    .day-header .day-name {
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .day-header.is-today .day-name {
+      color: #3b82f6;
+    }
+
+    .day-header .day-num {
+      font-size: 1.15rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .day-header.is-today .day-num {
+      background: #3b82f6;
+      color: white;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.95rem;
+    }
+
+    /* Grid body */
+    .grid-body {
+      flex: 1;
+      display: grid;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Time gutter */
+    .time-gutter {
+      position: relative;
+    }
+
+    .time-label {
+      position: absolute;
+      right: 6px;
+      font-size: 0.62rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      transform: translateY(-50%);
+      white-space: nowrap;
+    }
+
+    /* Day columns */
+    .day-columns {
+      display: grid;
+      position: relative;
+    }
+
+    .day-col {
+      position: relative;
+      border-left: 1px solid var(--border);
+    }
+
+    .day-col:first-child {
+      border-left: none;
+    }
+
+    .day-col.is-today {
+      background: var(--today-bg);
+    }
+
+    /* Hour grid lines */
+    .hour-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      border-top: 1px solid var(--grid-line);
+      pointer-events: none;
+    }
+
+    .hour-line.on-hour {
+      border-top-color: var(--border);
+    }
+
+    /* Now indicator */
+    .now-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--now-line);
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    .now-line::before {
+      content: '';
+      position: absolute;
+      left: -4px;
+      top: -3px;
+      width: 8px;
+      height: 8px;
+      background: var(--now-line);
+      border-radius: 50%;
+    }
+
+    /* Events */
+    .event {
+      position: absolute;
+      left: 2px;
+      right: 2px;
+      border-radius: 4px;
+      padding: 2px 5px;
+      overflow: hidden;
+      cursor: pointer;
+      border-left: 3px solid;
+      transition: box-shadow 0.15s, transform 0.15s;
+      z-index: 10;
+      font-size: 0.68rem;
+      line-height: 1.25;
+    }
+
+    .event:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      transform: scale(1.02);
+      z-index: 30;
+    }
+
+    .event .event-time {
+      font-weight: 700;
+      font-size: 0.6rem;
+      opacity: 0.8;
+    }
+
+    .event .event-name {
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .event .event-room {
+      font-size: 0.6rem;
+      opacity: 0.7;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Tooltip */
+    .tooltip {
+      display: none;
+      position: fixed;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+      z-index: 1000;
+      max-width: 300px;
+      font-size: 0.8rem;
+      pointer-events: none;
+    }
+
+    .tooltip.visible { display: block; }
+
+    .tooltip h3 {
+      font-size: 0.88rem;
+      margin-bottom: 6px;
+      line-height: 1.3;
+    }
+
+    .tooltip .tt-row {
+      display: flex;
+      gap: 6px;
+      padding: 2px 0;
+      color: var(--text-muted);
+    }
+
+    .tooltip .tt-row .tt-label {
+      font-weight: 600;
+      color: var(--text);
+      min-width: 80px;
+    }
+
+    .tooltip .tt-tag {
+      display: inline-block;
+      background: #f1f5f9;
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      margin-top: 6px;
+    }
+
+    /* Loading & error states */
+    .state-msg {
+      text-align: center;
+      padding: 80px 24px;
+      color: var(--text-muted);
+    }
+
+    .state-msg h2 { font-size: 1.1rem; margin-bottom: 8px; }
+    .state-msg p { font-size: 0.9rem; }
+
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty-day {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      opacity: 0.5;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <h1><span>MyGES</span> Planning</h1>
+      <div id="week-range"></div>
+    </div>
+    <div id="legend-container"></div>
+    <div id="last-updated"></div>
+  </header>
+
+  <div id="app">
+    <div class="state-msg">
+      <div class="spinner"></div>
+      <h2>Chargement du planning...</h2>
+    </div>
+  </div>
+
+  <div class="tooltip" id="tooltip"></div>
+
+  <script>
+    // ── Color palette ──
+    const PALETTE = [
+      { bg: '#dbeafe', border: '#3b82f6', text: '#1e40af' },
+      { bg: '#dcfce7', border: '#22c55e', text: '#166534' },
+      { bg: '#f3e8ff', border: '#a855f7', text: '#6b21a8' },
+      { bg: '#ffedd5', border: '#f97316', text: '#9a3412' },
+      { bg: '#fce7f3', border: '#ec4899', text: '#9d174d' },
+      { bg: '#e0f2fe', border: '#0ea5e9', text: '#075985' },
+      { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
+      { bg: '#d1fae5', border: '#10b981', text: '#065f46' },
+      { bg: '#fee2e2', border: '#ef4444', text: '#991b1b' },
+      { bg: '#e0e7ff', border: '#6366f1', text: '#3730a3' },
+    ];
+
+    const colorMap = {};
+    let colorIdx = 0;
+
+    function getColor(matiere) {
+      const key = matiere || '—';
+      if (!colorMap[key]) {
+        colorMap[key] = PALETTE[colorIdx % PALETTE.length];
+        colorIdx++;
+      }
+      return colorMap[key];
+    }
+
+    // ── Helpers ──
+    const DAY_NAMES = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+    const MONTH_NAMES = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+                         'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+
+    const GRID_START = 8;
+    const GRID_END = 19;
+    const GRID_HOURS = GRID_END - GRID_START;
+
+    function parseLocalTime(iso) {
+      const [datePart, rest] = iso.split('T');
+      const timePart = rest.split(/[+-]/)[0];
+      const [h, m] = timePart.split(':').map(Number);
+      return { date: datePart, hours: h, minutes: m, totalMinutes: h * 60 + m };
+    }
+
+    function cleanMatiere(raw) {
+      if (!raw) return 'Cours';
+      return raw.replace(/^M\d+\s*[–-]\s*t\d+\s*[–-]\s*/i, '')
+                .replace(/^\w/, c => c.toUpperCase());
+    }
+
+    function fmtTime(h, m) {
+      return `${String(h).padStart(2, '0')}h${String(m).padStart(2, '0')}`;
+    }
+
+    function getMonday(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00');
+      const day = d.getDay();
+      const diff = (day === 0 ? -6 : 1) - day;
+      d.setDate(d.getDate() + diff);
+      return d;
+    }
+
+    function dateToStr(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${dd}`;
+    }
+
+    function parisTodayStr() {
+      const now = new Date();
+      const parts = new Intl.DateTimeFormat('fr-CA', {
+        timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit'
+      }).formatToParts(now);
+      const y = parts.find(p => p.type === 'year').value;
+      const m = parts.find(p => p.type === 'month').value;
+      const d = parts.find(p => p.type === 'day').value;
+      return `${y}-${m}-${d}`;
+    }
+
+    function nowMinutes() {
+      const now = new Date();
+      const parts = new Intl.DateTimeFormat('fr-FR', {
+        timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', hour12: false
+      }).formatToParts(now);
+      const h = parseInt(parts.find(p => p.type === 'hour').value);
+      const m = parseInt(parts.find(p => p.type === 'minute').value);
+      return h * 60 + m;
+    }
+
+    // ── Render ──
+    async function main() {
+      try {
+        const resp = await fetch('calendar.json');
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        render(data);
+      } catch (err) {
+        document.getElementById('app').innerHTML = `
+          <div class="state-msg">
+            <h2>Impossible de charger le planning</h2>
+            <p>${err.message}. Le calendrier sera disponible après la première exécution du workflow GitHub Actions.</p>
+          </div>`;
+      }
+    }
+
+    function render(data) {
+      const events = data.events || [];
+      if (events.length === 0) {
+        document.getElementById('app').innerHTML = `
+          <div class="state-msg">
+            <h2>Aucun cours cette semaine</h2>
+            <p>Profitez de votre temps libre !</p>
+          </div>`;
+        return;
+      }
+
+      // Determine week days (Mon-Fri)
+      const firstDate = events[0].start;
+      const monday = getMonday(parseLocalTime(firstDate).date);
+      const days = [];
+      for (let i = 0; i < 5; i++) {
+        const d = new Date(monday);
+        d.setDate(d.getDate() + i);
+        days.push(dateToStr(d));
+      }
+
+      // Add weekend if events exist
+      const allDates = new Set(events.map(e => parseLocalTime(e.start).date));
+      const sat = new Date(monday); sat.setDate(sat.getDate() + 5);
+      const sun = new Date(monday); sun.setDate(sun.getDate() + 6);
+      if (allDates.has(dateToStr(sat))) days.push(dateToStr(sat));
+      if (allDates.has(dateToStr(sun))) days.push(dateToStr(sun));
+
+      // Header info
+      const mondayDate = new Date(days[0] + 'T00:00:00');
+      const lastDate = new Date(days[days.length - 1] + 'T00:00:00');
+      document.getElementById('week-range').textContent =
+        `Semaine du ${mondayDate.getDate()} au ${lastDate.getDate()} ${MONTH_NAMES[lastDate.getMonth()]} ${lastDate.getFullYear()}`;
+
+      if (data.generated_at) {
+        const gen = new Date(data.generated_at);
+        document.getElementById('last-updated').textContent =
+          `Mis à jour le ${gen.toLocaleDateString('fr-FR')} à ${gen.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+      }
+
+      // Pre-compute colors by assigning them in order of first appearance
+      for (const e of events) getColor(cleanMatiere(e.matiere));
+
+      // Render legend in header
+      let legendHtml = '<div class="legend">';
+      for (const [name, color] of Object.entries(colorMap)) {
+        legendHtml += `<div class="legend-item"><div class="legend-dot" style="background:${color.border}"></div>${esc(name)}</div>`;
+      }
+      legendHtml += '</div>';
+      document.getElementById('legend-container').innerHTML = legendHtml;
+
+      // Group events by date
+      const byDay = {};
+      for (const e of events) {
+        const d = parseLocalTime(e.start).date;
+        (byDay[d] = byDay[d] || []).push(e);
+      }
+
+      const today = parisTodayStr();
+      const numCols = days.length;
+
+      // Build calendar HTML (grid height will be set by JS after DOM insertion)
+      let html = '<div class="calendar">';
+
+      // Day headers
+      html += `<div class="day-headers" style="grid-template-columns: var(--gutter-width) repeat(${numCols}, 1fr)">`;
+      html += '<div></div>';
+      for (const dateStr of days) {
+        const d = new Date(dateStr + 'T00:00:00');
+        const isToday = dateStr === today;
+        html += `<div class="day-header${isToday ? ' is-today' : ''}">
+          <div class="day-name">${DAY_NAMES[d.getDay()]}</div>
+          <div class="day-num">${d.getDate()}</div>
+        </div>`;
+      }
+      html += '</div>';
+
+      // Grid body — height set to 100% of remaining flex space
+      html += `<div class="grid-body" id="grid-body" style="grid-template-columns: var(--gutter-width) 1fr">`;
+
+      // Time gutter (positions computed in JS)
+      html += '<div class="time-gutter" id="time-gutter"></div>';
+
+      // Day columns wrapper
+      html += `<div class="day-columns" id="day-columns" style="grid-template-columns: repeat(${numCols}, 1fr); position: relative">`;
+
+      // Day columns with events (positions as percentages)
+      for (const dateStr of days) {
+        const isToday = dateStr === today;
+        const dayEvents = byDay[dateStr] || [];
+        html += `<div class="day-col${isToday ? ' is-today' : ''}">`;
+
+        if (dayEvents.length === 0) {
+          html += '<div class="empty-day">Pas de cours</div>';
+        }
+
+        for (const ev of dayEvents) {
+          const start = parseLocalTime(ev.start);
+          const end = parseLocalTime(ev.end);
+          const topPct = ((start.totalMinutes - GRID_START * 60) / (GRID_HOURS * 60)) * 100;
+          const heightPct = ((end.totalMinutes - start.totalMinutes) / (GRID_HOURS * 60)) * 100;
+          const color = getColor(cleanMatiere(ev.matiere));
+          const name = cleanMatiere(ev.matiere);
+          const timeStr = `${fmtTime(start.hours, start.minutes)} - ${fmtTime(end.hours, end.minutes)}`;
+          const room = ev.salle || ev.room || '';
+
+          html += `<div class="event"
+            style="top:${topPct}%;height:${heightPct}%;background:${color.bg};border-color:${color.border};color:${color.text}"
+            data-name="${escAttr(ev.matiere || ev.summary)}"
+            data-time="${escAttr(timeStr)}"
+            data-room="${escAttr(ev.salle || ev.room || '—')}"
+            data-prof="${escAttr(ev.intervenant || '—')}"
+            data-type="${escAttr(ev.type || '—')}"
+            data-modality="${escAttr(ev.modality || '—')}"
+            data-comment="${escAttr(ev.commentaire || '')}"
+            data-location="${escAttr(ev.location || '')}">
+            <div class="event-time">${timeStr}</div>
+            <div class="event-name">${esc(name)}</div>
+            <div class="event-room">${esc(room)}</div>
+          </div>`;
+        }
+        html += '</div>';
+      }
+
+      html += '</div>'; // day-columns
+      html += '</div>'; // grid-body
+      html += '</div>'; // calendar
+
+      document.getElementById('app').innerHTML = html;
+
+      // After DOM insertion, add hour lines and now indicator using actual pixel dimensions
+      requestAnimationFrame(() => {
+        const gridBody = document.getElementById('grid-body');
+        const dayColumns = document.getElementById('day-columns');
+        const timeGutter = document.getElementById('time-gutter');
+        const gridHeight = gridBody.offsetHeight;
+        const hourHeight = gridHeight / GRID_HOURS;
+
+        // Time labels (skip last to avoid clipping at bottom edge)
+        for (let h = GRID_START; h < GRID_END; h++) {
+          const top = (h - GRID_START) * hourHeight;
+          const label = document.createElement('div');
+          label.className = 'time-label';
+          label.style.top = top + 'px';
+          label.textContent = String(h).padStart(2, '0') + 'h';
+          timeGutter.appendChild(label);
+        }
+
+        // Hour lines (skip last to avoid clipping at bottom edge)
+        for (let h = GRID_START; h < GRID_END; h++) {
+          const top = (h - GRID_START) * hourHeight;
+          const line = document.createElement('div');
+          line.className = 'hour-line on-hour';
+          line.style.top = top + 'px';
+          dayColumns.appendChild(line);
+          const half = document.createElement('div');
+          half.className = 'hour-line';
+          half.style.top = (top + hourHeight / 2) + 'px';
+          dayColumns.appendChild(half);
+        }
+
+        // Now indicator
+        const nowMin = nowMinutes();
+        const nowInRange = nowMin >= GRID_START * 60 && nowMin <= GRID_END * 60;
+        if (days.includes(today) && nowInRange) {
+          const nowTop = ((nowMin - GRID_START * 60) / (GRID_HOURS * 60)) * gridHeight;
+          const nowLine = document.createElement('div');
+          nowLine.className = 'now-line';
+          nowLine.style.top = nowTop + 'px';
+          dayColumns.appendChild(nowLine);
+        }
+
+        setupTooltips();
+      });
+    }
+
+    function esc(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function escAttr(s) {
+      return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── Tooltips ──
+    function setupTooltips() {
+      const tooltip = document.getElementById('tooltip');
+      document.querySelectorAll('.event').forEach(el => {
+        el.addEventListener('mouseenter', () => {
+          const r = el.getBoundingClientRect();
+          let rows = `
+            <h3>${esc(el.dataset.name)}</h3>
+            <div class="tt-row"><span class="tt-label">Horaire</span> ${esc(el.dataset.time)}</div>
+            <div class="tt-row"><span class="tt-label">Salle</span> ${esc(el.dataset.room)}</div>
+            <div class="tt-row"><span class="tt-label">Intervenant</span> ${esc(el.dataset.prof)}</div>
+            <div class="tt-row"><span class="tt-label">Type</span> ${esc(el.dataset.type)}</div>
+            <div class="tt-row"><span class="tt-label">Modalité</span> ${esc(el.dataset.modality)}</div>`;
+          if (el.dataset.comment) {
+            rows += `<div class="tt-tag">${esc(el.dataset.comment)}</div>`;
+          }
+          if (el.dataset.location) {
+            rows += `<div class="tt-row" style="margin-top:4px;font-size:0.75rem"><span class="tt-label">Adresse</span> ${esc(el.dataset.location)}</div>`;
+          }
+          tooltip.innerHTML = rows;
+          tooltip.classList.add('visible');
+
+          let left = r.right + 8;
+          let top = r.top;
+          if (left + 310 > window.innerWidth) left = r.left - 318;
+          if (top + 250 > window.innerHeight) top = window.innerHeight - 260;
+          if (top < 0) top = 8;
+          tooltip.style.left = left + 'px';
+          tooltip.style.top = top + 'px';
+        });
+
+        el.addEventListener('mouseleave', () => {
+          tooltip.classList.remove('visible');
+        });
+      });
+    }
+
+    main();
+  </script>
+</body>
+</html>
