@@ -80,12 +80,21 @@ class MyGesClient:
         self.cookie_jar = CookieJar()
         self.opener = build_opener(HTTPCookieProcessor(self.cookie_jar))
 
-    def _request(self, url: str, *, data: bytes | None = None, headers: dict[str, str] | None = None) -> tuple[str, str]:
+    def _request(self, url: str, *, data: bytes | None = None, headers: dict[str, str] | None = None, retries: int = 3) -> tuple[str, str]:
         request = Request(url, data=data, headers=headers or {})
-        with self.opener.open(request) as response:
-            charset = response.headers.get_content_charset() or "utf-8"
-            body = response.read().decode(charset, errors="replace")
-            return response.geturl(), body
+        for attempt in range(retries):
+            try:
+                with self.opener.open(request) as response:
+                    charset = response.headers.get_content_charset() or "utf-8"
+                    body = response.read().decode(charset, errors="replace")
+                    return response.geturl(), body
+            except Exception as exc:
+                if attempt < retries - 1:
+                    wait = 2 ** attempt
+                    print(f"Tentative {attempt + 1} échouée ({exc}), nouvelle tentative dans {wait}s...")
+                    time_module.sleep(wait)
+                else:
+                    raise
 
     def login(self) -> None:
         _, login_page = self._request(LOGIN_URL)
